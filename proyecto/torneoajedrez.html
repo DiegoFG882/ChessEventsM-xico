@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publicar Torneo - ChessEvents México</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-slate-100 font-sans p-4 md:p-8">
+
+    <div class="max-w-3xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden border border-slate-200">
+        <div class="bg-indigo-900 p-6 text-white">
+            <h2 id="tituloPagina" class="text-2xl font-bold flex items-center gap-2">🇲🇽 Publicar Torneo en México</h2>
+            <p class="text-indigo-300 text-sm">Ingresa los detalles oficiales de la convocatoria</p>
+        </div>
+
+        <form id="torneoForm" class="p-8 space-y-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700">Nombre del Torneo</label>
+                    <input type="text" id="nombreTorneo" required placeholder="Ej: Abierto Mexicano 2026" class="mt-1 w-full p-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700">📄 Convocatoria (PDF / Imagen)</label>
+                    <input type="file" id="archivo" accept="application/pdf,image/*" class="mt-1 w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="space-y-4">
+                <h3 class="font-bold text-indigo-600 flex items-center gap-2">📍 Sede del Evento</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase">Estado de la República</label>
+                        <select id="estado" required class="mt-1 w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Selecciona un estado...</option>
+                            <option>Ciudad de México</option><option>Estado de México</option><option>Jalisco</option><option>Nuevo León</option>
+                            </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase">Enlace a Google Maps</label>
+                        <input type="url" id="maps" placeholder="https://goo.gl/maps/..." class="mt-1 w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase">Dirección (Calle, No., Colonia)</label>
+                    <input type="text" id="direccion" placeholder="Ej: Av. Juárez 123, Col. Centro" class="mt-1 w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none">
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="space-y-4">
+                <h3 class="font-bold text-indigo-600">⏱️ Especificaciones del Torneo</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border">
+                        <span class="font-bold text-sm">¿Válido para ELO FIDE?</span>
+                        <input type="checkbox" id="esFide" class="w-6 h-6 accent-indigo-600">
+                    </div>
+                    <div>
+                        <select id="ritmo" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none">
+                            <option value="Clasico">Ritmo Clásico</option>
+                            <option value="Rapido">Ritmo Rápido</option>
+                            <option value="Blitz">Ritmo Blitz</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Tiempo (Ritmo)</label>
+                        <input type="text" id="ritmoDetalle" placeholder="90+30" class="mt-1 w-full p-2 bg-slate-50 border border-slate-300 rounded-lg outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Rondas</label>
+                        <input type="number" id="rondas" placeholder="5" class="mt-1 w-full p-2 bg-slate-50 border border-slate-300 rounded-lg outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Fecha</label>
+                        <input type="date" id="fecha" class="mt-1 w-full p-2 bg-slate-50 border border-slate-300 rounded-lg outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase">Hora</label>
+                        <input type="time" id="hora" class="mt-1 w-full p-2 bg-slate-50 border border-slate-300 rounded-lg outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="p-6 bg-indigo-50 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 border border-indigo-100">
+                <div class="flex items-center gap-4">
+                    <label class="font-bold text-indigo-900">Costo:</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-400">$</span>
+                        <input type="number" id="costo" placeholder="0.00" class="pl-7 pr-3 py-2 w-32 rounded-xl border-indigo-200 outline-none">
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-indigo-200">
+                    <input type="checkbox" id="esGratis" class="w-5 h-5 accent-indigo-600">
+                    <label class="font-bold text-indigo-700">¡Gratis!</label>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="space-y-4">
+                <h3 class="font-bold text-indigo-600">📱 Contacto</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="tel" id="whatsapp" placeholder="WhatsApp (Ej: 5512345678)" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none">
+                    <input type="url" id="redSocial" placeholder="Link Facebook/Red Social" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl outline-none">
+                </div>
+            </div>
+
+            <div class="flex gap-4 pt-4">
+                <a href="index.html" class="flex-1 text-center p-4 text-slate-400 font-bold">Regresar</a>
+                <button type="submit" id="btnTexto" class="flex-[2] bg-indigo-600 text-white p-4 rounded-2xl font-bold text-lg hover:bg-indigo-700 shadow-lg">
+                    Confirmar y Publicar 🚀
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+        apiKey: "AIzaSyARAiL3nTEOURSaH2LooV30zR2tHXsqCMg",
+        authDomain: "chesseventsmexico.firebaseapp.com",
+        databaseURL: "https://chesseventsmexico-default-rtdb.firebaseio.com",
+        projectId: "chesseventsmexico",
+        storageBucket: "chesseventsmexico.firebasestorage.app",
+        messagingSenderId: "197234586613",
+        appId: "1:197234586613:web:771e024dadf5c88d75e6bc",
+        measurementId: "G-SM8WSGZB56"
+    };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                alert("Sesión necesaria");
+                window.location.href = "login.html";
+            } else {
+                verificarEdicion();
+            }
+        });
+
+        function verificarEdicion() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            if (editId) {
+                document.getElementById('tituloPagina').innerText = "Editar Torneo";
+                document.getElementById('btnTexto').innerText = "Actualizar Cambios";
+                
+                db.ref('torneos/' + editId).once('value', (snapshot) => {
+                    const t = snapshot.val();
+                    if (t) {
+                        document.getElementById('nombreTorneo').value = t.nombre;
+                        document.getElementById('estado').value = t.estado;
+                        document.getElementById('fecha').value = t.fecha;
+                        document.getElementById('hora').value = t.hora || '';
+                        document.getElementById('ritmo').value = t.ritmo;
+                        document.getElementById('ritmoDetalle').value = t.ritmoDetalle || '';
+                        document.getElementById('rondas').value = t.rondas || '';
+                        document.getElementById('direccion').value = t.direccion || '';
+                        document.getElementById('maps').value = t.maps || '';
+                        document.getElementById('whatsapp').value = t.whatsapp || '';
+                        document.getElementById('redSocial').value = t.redSocial || '';
+                        document.getElementById('esFide').checked = t.esFide;
+                        if (t.costo === "Gratis") {
+                            document.getElementById('esGratis').checked = true;
+                            document.getElementById('costo').disabled = true;
+                        } else {
+                            document.getElementById('costo').value = t.costo.replace('$', '');
+                        }
+                    }
+                });
+            }
+        }
+
+        document.getElementById('torneoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const user = firebase.auth().currentUser;
+            const fileInput = document.getElementById('archivo');
+            const file = fileInput.files[0];
+
+            const procesarGuardado = (archivoData = null) => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const editId = urlParams.get('edit');
+                const id = editId || Date.now();
+
+                const torneo = {
+                    id: id,
+                    userId: user.uid,
+                    autor: user.displayName || user.email,
+                    nombre: document.getElementById('nombreTorneo').value,
+                    estado: document.getElementById('estado').value,
+                    fecha: document.getElementById('fecha').value,
+                    hora: document.getElementById('hora').value,
+                    ritmo: document.getElementById('ritmo').value,
+                    ritmoDetalle: document.getElementById('ritmoDetalle').value,
+                    rondas: document.getElementById('rondas').value,
+                    costo: document.getElementById('esGratis').checked ? "Gratis" : `$${document.getElementById('costo').value}`,
+                    direccion: document.getElementById('direccion').value,
+                    maps: document.getElementById('maps').value,
+                    whatsapp: document.getElementById('whatsapp').value,
+                    redSocial: document.getElementById('redSocial').value,
+                    esFide: document.getElementById('esFide').checked,
+                    archivoContenido: archivoData || null,
+                    archivoNombre: file ? file.name : (editId ? "PDF ya guardado" : "Sin archivo")
+                };
+
+                db.ref('torneos/' + id).set(torneo).then(() => {
+                    alert("¡Éxito!");
+                    window.location.href = "index.html";
+                });
+            };
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => procesarGuardado(event.target.result);
+                reader.readAsDataURL(file);
+            } else {
+                procesarGuardado();
+            }
+        });
+
+        document.getElementById('esGratis').addEventListener('change', function() {
+            document.getElementById('costo').disabled = this.checked;
+            if (this.checked) document.getElementById('costo').value = '';
+        });
+    </script>
+</body>
+</html>

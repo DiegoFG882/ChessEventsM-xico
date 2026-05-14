@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Acceso - ChessEvents</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-slate-900 flex items-center justify-center min-h-screen p-4">
+    
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
+        <div class="text-center mb-8">
+            <h2 id="authTitle" class="text-3xl font-black text-slate-800 mb-2">¡Hola, Maestro! ♟️</h2>
+            <p id="authSubtitle" class="text-slate-500 italic">Inicia sesión para publicar tu torneo</p>
+        </div>
+        
+        <form id="authForm" class="space-y-4">
+            <div id="nombreContainer" class="hidden">
+                <input type="text" id="regNombre" placeholder="Tu nombre completo" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+            </div>
+            <input type="email" id="email" required placeholder="Correo electrónico" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+            <input type="password" id="pass" required placeholder="Contraseña" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+            
+            <button type="submit" id="mainBtn" class="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black hover:bg-indigo-700 transition uppercase tracking-tighter">
+                ENTRAR
+            </button>
+        </form>
+
+        <div class="mt-6">
+            <button onclick="loginGoogle()" class="w-full border-2 border-slate-100 p-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition">
+                <img src="https://www.google.com/favicon.ico" class="w-5" alt="G">
+                Acceder con Google
+            </button>
+        </div>
+
+        <p class="text-center mt-8 text-sm font-bold text-slate-400">
+            <span id="toggleText">¿No tienes cuenta?</span> 
+            <button type="button" id="toggleAuth" class="text-indigo-600 hover:underline ml-1">Regístrate aquí</button>
+        </p>
+    </div>
+<script>
+    // Configuración exacta de tu API.txt
+    const firebaseConfig = {
+        apiKey: "AIzaSyARAiL3nTEOURSaH2LooV30zR2tHXsqCMg",
+        authDomain: "chesseventsmexico.firebaseapp.com",
+        databaseURL: "https://chesseventsmexico-default-rtdb.firebaseio.com",
+        projectId: "chesseventsmexico",
+        storageBucket: "chesseventsmexico.firebasestorage.app",
+        messagingSenderId: "197234586613",
+        appId: "1:197234586613:web:771e024dadf5c88d75e6bc",
+        measurementId: "G-SM8WSGZB56"
+    };
+
+    // Inicializar una sola vez
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+
+    // Función de Google corregida para Netlify
+    function loginGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        // Usamos redirect porque en móviles y Netlify funciona mejor que el popup
+        auth.signInWithRedirect(provider);
+    }
+
+    // Lógica de Login/Registro manual
+    let modeLogin = true;
+    const toggleBtn = document.getElementById('toggleBtn');
+    const nombreDiv = document.getElementById('nombreContainer');
+    const title = document.getElementById('authTitle');
+    const mainBtn = document.getElementById('mainBtn');
+
+    toggleBtn.onclick = () => {
+        modeLogin = !modeLogin;
+        nombreDiv.classList.toggle('hidden');
+        title.innerText = modeLogin ? "¡Hola, Maestro! ♟️" : "Crear Cuenta 🏆";
+        mainBtn.innerText = modeLogin ? "ENTRAR" : "REGISTRARME";
+        document.getElementById('toggleText').innerText = modeLogin ? "¿No tienes cuenta?" : "¿Ya eres miembro?";
+        toggleBtn.innerText = modeLogin ? "Regístrate aquí" : "Inicia Sesión";
+    };
+
+    document.getElementById('authForm').onsubmit = (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('pass').value;
+
+        if (modeLogin) {
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => window.location.href = "index.html")
+                .catch(err => alert("Error: " + err.message));
+        } else {
+            const nombre = document.getElementById('regNombre').value;
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((res) => res.user.updateProfile({ displayName: nombre }))
+                .then(() => window.location.href = "index.html")
+                .catch(err => alert("Error al registrar: " + err.message));
+        }
+    };
+</script>
+   
+</body>
+</html>
