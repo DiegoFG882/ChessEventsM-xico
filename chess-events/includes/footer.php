@@ -101,7 +101,7 @@
 
     document.querySelectorAll('form[onsubmit*="confirm("]').forEach(form => {
         const attr = form.getAttribute('onsubmit');
-        const match = attr.match(/confirm\(['"](.+?)['"]\)/);
+        const match = attr.match(/confirm\('([\s\S]+?)'\)/);
         const mensaje = match ? match[1] : '¿Confirmas esta acción?';
         form.removeAttribute('onsubmit');
 

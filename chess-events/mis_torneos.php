@@ -62,8 +62,15 @@ require_once 'includes/alertas.php';
                     ORDER BY i.fecha_inscripcion ASC
                 ");
                 $stmtJug->execute([$t['id_torneo']]);
-                $inscritos = $stmtJug->fetchAll();
+                $inscritos      = $stmtJug->fetchAll();
                 $totalInscritos = count($inscritos);
+                $cupoMaximo     = (int)($t['cupo'] ?? 150);
+                $cupoLleno      = ($totalInscritos >= $cupoMaximo);
+
+                // Mensaje de confirmación específico con nombre y afectados
+                $nombreTorneoEsc = htmlspecialchars($t['nombre'], ENT_QUOTES);
+                $avisoInscritos  = $totalInscritos > 0 ? " ADVERTENCIA: Hay {$totalInscritos} jugador(es) inscrito(s) que perderán su registro." : "";
+                $msgEliminar     = "¿Eliminar permanentemente el torneo \"{$nombreTorneoEsc}\"?{$avisoInscritos}";
             ?>
             <div class="col-12">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -74,9 +81,12 @@ require_once 'includes/alertas.php';
                                     <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 fw-bold">
                                         <?= htmlspecialchars($t['nombre_ritmo']) ?> (<?= htmlspecialchars($t['ritmo_detalle']) ?>)
                                     </span>
-                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1 fw-bold">
-                                        <i class="bi bi-people-fill me-1"></i><?= $totalInscritos ?> inscritos
+                                    <span class="badge <?= $cupoLleno ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success' ?> rounded-pill px-3 py-1 fw-bold">
+                                        <i class="bi bi-people-fill me-1"></i><?= $totalInscritos ?> / <?= $cupoMaximo ?> inscritos
                                     </span>
+                                    <?php if ($cupoLleno): ?>
+                                        <span class="badge bg-danger rounded-pill px-3 py-1 fw-bold">Cupo Lleno</span>
+                                    <?php endif; ?>
                                 </div>
                                 <h2 class="h5 fw-bolder text-dark mb-1"><?= htmlspecialchars($t['nombre']) ?></h2>
                                 <p class="small text-muted mb-0">
@@ -88,7 +98,7 @@ require_once 'includes/alertas.php';
                             <!-- Acciones CRUD del Torneo -->
                             <div class="col-lg-5 d-flex flex-wrap justify-content-lg-end gap-2">
                                 <button class="btn btn-outline-dark btn-sm rounded-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#listaInscritos<?= $t['id_torneo'] ?>">
-                                    <i class="bi bi-list-ul me-1"></i> Ver Inscritos (<?= $totalInscritos ?>)
+                                    <i class="bi bi-list-ul me-1"></i> Ver Inscritos (<?= $totalInscritos ?>/<?= $cupoMaximo ?>)
                                 </button>
                                 <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn btn-outline-secondary btn-sm rounded-3 fw-semibold" title="Ver ficha pública">
                                     <i class="bi bi-eye"></i>
@@ -96,7 +106,7 @@ require_once 'includes/alertas.php';
                                 <a href="formulario_torneo.php?id=<?= $t['id_torneo'] ?>" class="btn btn-warning btn-sm rounded-3 fw-bold text-dark">
                                     <i class="bi bi-pencil-square me-1"></i> Editar
                                 </a>
-                                <form method="POST" action="backend/torneo_eliminar.php" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este torneo de forma permanente? Se borrarán también sus inscripciones.');">
+                                <form method="POST" action="backend/torneo_eliminar.php" class="d-inline" onsubmit="return confirm('<?= $msgEliminar ?>');">
                                     <input type="hidden" name="id_torneo" value="<?= $t['id_torneo'] ?>">
                                     <button type="submit" class="btn btn-danger btn-sm rounded-3 fw-bold">
                                         <i class="bi bi-trash3"></i>
@@ -108,7 +118,7 @@ require_once 'includes/alertas.php';
                         <!-- Tabla Desplegable de Jugadores Inscritos -->
                         <div class="collapse mt-4 pt-3 border-top" id="listaInscritos<?= $t['id_torneo'] ?>">
                             <h3 class="h6 fw-bold text-uppercase text-muted mb-3">
-                                <i class="bi bi-person-lines-fill text-primary me-1"></i> Lista Oficial de Participantes
+                                <i class="bi bi-person-lines-fill text-primary me-1"></i> Lista Oficial de Participantes (<?= $totalInscritos ?> de <?= $cupoMaximo ?> lugares)
                             </h3>
                             <?php if (empty($inscritos)): ?>
                                 <p class="small text-muted fst-italic mb-0">Todavía no hay jugadores inscritos en este evento.</p>

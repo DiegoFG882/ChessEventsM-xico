@@ -1,38 +1,56 @@
 <?php
 require_once 'config/conexion.php';
 
-// Acceso exclusivo para Administrador (id_rol = 1) - Protección contra acceso directo por URL
-if (!isset($_SESSION['id_usuario']) || $_SESSION['id_rol'] !== 1) {
-    $_SESSION['alerta'] = ['tipo' => 'danger', 'mensaje' => 'Acceso denegado. Área exclusiva para administradores.'];
-    header('Location: index.php');
-    exit;
+$tituloPagina = 'ChessEvents México - Cartelera Nacional de Torneos';
+
+// Cargar catálogos para los filtros
+$estados = $pdo->query("SELECT id_estado, nombre_estado FROM estados ORDER BY nombre_estado ASC")->fetchAll();
+$ritmos  = $pdo->query("SELECT id_ritmo, nombre_ritmo FROM ritmos ORDER BY id_ritmo ASC")->fetchAll();
+
+// Recibir filtros por GET
+$busqueda = trim($_GET['q'] ?? '');
+$filtroEstado = (int)($_GET['estado'] ?? 0);
+$filtroRitmo  = (int)($_GET['ritmo'] ?? 0);
+
+// Construir consulta dinámica con JOINs a tablas normalizadas
+$sql = "SELECT t.*, e.nombre_estado, r.nombre_ritmo, u.nombre_completo AS organizador,
+               (SELECT COUNT(*) FROM inscripciones i WHERE i.id_torneo = t.id_torneo) AS total_inscritos
+        FROM torneos t
+        INNER JOIN estados e ON t.id_estado = e.id_estado
+        INNER JOIN ritmos r ON t.id_ritmo = r.id_ritmo
+        INNER JOIN usuarios u ON t.id_organizador = u.id_usuario
+        WHERE 1=1";
+
+$params = [];
+
+if ($busqueda !== '') {
+    $sql .= " AND (LOWER(t.nombre) LIKE LOWER(?) OR LOWER(t.direccion) LIKE LOWER(?))";
+    $params[] = "%$busqueda%";
+    $params[] = "%$busqueda%";
 }
 
-$tituloPagina = 'Panel Administrador - ChessEvents México';
-$migaActual   = 'Panel Administrador';
+if ($filtroEstado > 0) {
+    $sql .= " AND t.id_estado = ?";
+    $params[] = $filtroEstado;
+}
 
-// Consultar todos los torneos con su conteo de inscritos
-$torneos = $pdo->query("
-    SELECT t.id_torneo, t.nombre, t.fecha_evento, e.nombre_estado, u.nombre_completo AS organizador,
-           (SELECT COUNT(*) FROM inscripciones i WHERE i.id_torneo = t.id_torneo) AS inscritos
-    FROM torneos t
-    INNER JOIN estados e ON t.id_estado = e.id_estado
-    INNER JOIN usuarios u ON t.id_organizador = u.id_usuario
-    ORDER BY t.fecha_creacion DESC
-")->fetchAll();
+if ($filtroRitmo > 0) {
+    $sql .= " AND t.id_ritmo = ?";
+    $params[] = $filtroRitmo;
+}
 
-// Consultar todos los usuarios y cuántos torneos ha creado cada uno
-$usuarios = $pdo->query("
-    SELECT u.id_usuario, u.nombre_completo, u.correo, u.telefono, u.id_rol, r.nombre_rol, e.nombre_estado,
-           (SELECT COUNT(*) FROM torneos t WHERE t.id_organizador = u.id_usuario) AS torneos_creados
-    FROM usuarios u
-    INNER JOIN roles r ON u.id_rol = r.id_rol
-    INNER JOIN estados e ON u.id_estado = e.id_estado
-    ORDER BY u.id_usuario ASC
-")->fetchAll();
+// Ordenar: primero los torneos próximos en orden ascendente, y luego los pasados en orden descendente
+$sql .= " ORDER BY (t.fecha_evento >= CURRENT_DATE) DESC, 
+                   CASE WHEN t.fecha_evento >= CURRENT_DATE THEN t.fecha_evento END ASC,
+                   CASE WHEN t.fecha_evento < CURRENT_DATE THEN t.fecha_evento END DESC";
 
-$rolesCatalogo = $pdo->query("SELECT id_rol, nombre_rol FROM roles ORDER BY id_rol ASC")->fetchAll();
-$totalInscripcionesGlobal = $pdo->query("SELECT COUNT(*) FROM inscripciones")->fetchColumn();
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$torneos = $stmt->fetchAll();
+
+$hoy = date('Y-m-d');
+$torneosProximos    = array_filter($torneos, fn($t) => $t['fecha_evento'] >= $hoy);
+$torneosFinalizados = array_filter($torneos, fn($t) => $t['fecha_evento'] < $hoy);
 
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
@@ -40,228 +58,247 @@ require_once 'includes/alertas.php';
 ?>
 
 <main class="container py-4">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-        <div>
-            <span class="badge bg-dark text-warning fw-bold text-uppercase mb-1">Control Global</span>
-            <h1 class="h3 fw-bolder text-dark mb-0">Panel Master de Administración</h1>
-        </div>
-    </div>
 
-    <!-- Estadísticas Rápidas (3 tarjetas) -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-                <div class="bg-primary-subtle text-primary p-3 rounded-4 fs-3">
-                    <i class="bi bi-trophy-fill"></i>
-                </div>
-                <div>
-                    <span class="small text-muted fw-bold text-uppercase d-block">Torneos Publicados</span>
-                    <span class="h3 fw-bolder text-dark mb-0"><?= count($torneos) ?></span>
-                </div>
+    <!-- Banner Principal Minimalista -->
+    <div class="bg-dark text-white rounded-4 p-4 p-md-5 mb-4 shadow-sm position-relative overflow-hidden">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="badge bg-warning text-dark fw-bold text-uppercase mb-2 px-3 py-1">
+                    <i class="bi bi-geo-alt-fill me-1"></i> Cartelera Oficial en México
+                </span>
+                <h1 class="display-6 fw-bolder mb-2">Encuentra y participa en los próximos torneos de ajedrez</h1>
+                <p class="text-light opacity-75 mb-0">Explora convocatorias oficiales, verifica validez FIDE, descarga las bases en PDF e inscríbete en línea.</p>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-                <div class="bg-success-subtle text-success p-3 rounded-4 fs-3">
-                    <i class="bi bi-people-fill"></i>
-                </div>
-                <div>
-                    <span class="small text-muted fw-bold text-uppercase d-block">Usuarios Registrados</span>
-                    <span class="h3 fw-bolder text-dark mb-0"><?= count($usuarios) ?></span>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-                <div class="bg-warning-subtle text-warning-emphasis p-3 rounded-4 fs-3">
-                    <i class="bi bi-card-checklist"></i>
-                </div>
-                <div>
-                    <span class="small text-muted fw-bold text-uppercase d-block">Inscripciones Activas</span>
-                    <span class="h3 fw-bolder text-dark mb-0"><?= $totalInscripcionesGlobal ?></span>
-                </div>
+            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <?php if (!isset($_SESSION['id_usuario'])): ?>
+                    <a href="registro.php" class="btn btn-warning fw-bold px-4 py-2.5 rounded-3 shadow-sm">
+                        <i class="bi bi-person-plus-fill me-1"></i> Registrarme Ahora
+                    </a>
+                <?php elseif ($_SESSION['id_rol'] === 2 || $_SESSION['id_rol'] === 1): ?>
+                    <a href="formulario_torneo.php" class="btn btn-warning fw-bold px-4 py-2.5 rounded-3 shadow-sm">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Publicar Convocatoria
+                    </a>
+                <?php else: ?>
+                    <a href="mis_inscripciones.php" class="btn btn-outline-light fw-bold px-4 py-2.5 rounded-3">
+                        <i class="bi bi-card-checklist me-1"></i> Ver Mis Inscripciones
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
-    <!-- SECCIÓN 1: GESTIÓN DE USUARIOS Y ROLES -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
-        <div class="card-header bg-dark text-white py-3 px-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-            <h2 class="h6 fw-bold mb-0"><i class="bi bi-person-gear text-warning me-2"></i>Gestión de Usuarios y Permisos</h2>
-            <input type="text" id="filtroUsuarios" class="form-control form-control-sm bg-light" style="max-width: 240px;" placeholder="Filtrar por nombre o correo...">
-        </div>
-        <div class="card-body p-0 bg-white">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 small" id="tablaUsuarios">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-4">ID</th>
-                            <th>Usuario</th>
-                            <th>Estado / Tel.</th>
-                            <th>Asignar Rol</th>
-                            <th class="text-end pe-4">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($usuarios as $u): 
-                            $nombreEsc = htmlspecialchars($u['nombre_completo'], ENT_QUOTES);
-                            $correoEsc = htmlspecialchars($u['correo'], ENT_QUOTES);
-                            $extraAviso = $u['torneos_creados'] > 0 ? " y sus {$u['torneos_creados']} torneo(s) publicados" : "";
-                            $msgConfirmUser = "¿Eliminar permanentemente la cuenta de {$nombreEsc} ({$correoEsc}){$extraAviso}?";
-                        ?>
-                        <tr>
-                            <td class="ps-4 fw-bold text-muted">#<?= $u['id_usuario'] ?></td>
-                            <td>
-                                <span class="fw-bold text-dark d-block"><?= htmlspecialchars($u['nombre_completo']) ?></span>
-                                <span class="text-muted" style="font-size: 0.75rem;"><?= htmlspecialchars($u['correo']) ?></span>
-                            </td>
-                            <td>
-                                <span class="d-block"><?= htmlspecialchars($u['nombre_estado']) ?></span>
-                                <span class="text-muted" style="font-size: 0.75rem;"><?= htmlspecialchars($u['telefono']) ?></span>
-                            </td>
-                            <td>
-                                <?php if ($u['id_usuario'] == $_SESSION['id_usuario']): ?>
-                                    <span class="badge bg-dark text-warning text-uppercase">Admin Actual</span>
-                                <?php else: ?>
-                                    <form method="POST" action="backend/admin_usuarios.php" class="d-flex gap-1">
-                                        <input type="hidden" name="accion" value="cambiar_rol">
-                                        <input type="hidden" name="id_usuario" value="<?= $u['id_usuario'] ?>">
-                                        <select name="id_rol" class="form-select form-select-sm bg-light" style="width: 130px;">
-                                            <?php foreach ($rolesCatalogo as $rol): ?>
-                                                <option value="<?= $rol['id_rol'] ?>" <?= $u['id_rol'] == $rol['id_rol'] ? 'selected' : '' ?>>
-                                                    <?= ucfirst($rol['nombre_rol']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button type="submit" class="btn btn-outline-primary btn-sm fw-bold" title="Guardar rol">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-                                    </form>
-                                <?php endif; ?>
-                            </td>
-                            <td class="text-end pe-4">
-                                <?php if ($u['id_usuario'] != $_SESSION['id_usuario']): ?>
-                                    <form method="POST" action="backend/admin_usuarios.php" class="d-inline" onsubmit="return confirm('<?= $msgConfirmUser ?>');">
-                                        <input type="hidden" name="accion" value="eliminar_usuario">
-                                        <input type="hidden" name="id_usuario" value="<?= $u['id_usuario'] ?>">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-3" title="Eliminar cuenta">
-                                            <i class="bi bi-trash3"></i>
-                                        </button>
-                                    </form>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form method="GET" action="index.php" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="q" class="form-label small fw-bold text-muted text-uppercase mb-1">Buscar por nombre o sede</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="q" name="q" value="<?= htmlspecialchars($busqueda) ?>" 
+                               class="form-control bg-light border-start-0" placeholder="Ej. Abierto Nacional, UNAM...">
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="estado" class="form-label small fw-bold text-muted text-uppercase mb-1">Estado</label>
+                    <select id="estado" name="estado" class="form-select bg-light">
+                        <option value="0">Todos los estados</option>
+                        <?php foreach ($estados as $est): ?>
+                            <option value="<?= $est['id_estado'] ?>" <?= $filtroEstado === (int)$est['id_estado'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($est['nombre_estado']) ?>
+                            </option>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="ritmo" class="form-label small fw-bold text-muted text-uppercase mb-1">Ritmo de juego</label>
+                    <select id="ritmo" name="ritmo" class="form-select bg-light">
+                        <option value="0">Todos los ritmos</option>
+                        <?php foreach ($ritmos as $rit): ?>
+                            <option value="<?= $rit['id_ritmo'] ?>" <?= $filtroRitmo === (int)$rit['id_ritmo'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($rit['nombre_ritmo']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-chess-primary w-100 py-2 rounded-3">
+                        Filtrar
+                    </button>
+                    <?php if ($busqueda !== '' || $filtroEstado > 0 || $filtroRitmo > 0): ?>
+                        <a href="index.php" class="btn btn-outline-secondary py-2 rounded-3" title="Limpiar filtros">
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- SECCIÓN 2: MODERACIÓN GLOBAL DE TORNEOS E INSCRITOS -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-header bg-dark text-white py-3 px-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-            <h2 class="h6 fw-bold mb-0"><i class="bi bi-trophy text-warning me-2"></i>Torneos Publicados en la Plataforma</h2>
-            <input type="text" id="filtroTorneos" class="form-control form-control-sm bg-light" style="max-width: 240px;" placeholder="Filtrar torneo u organizador...">
-        </div>
-        <div class="card-body p-0 bg-white">
-            <?php if (empty($torneos)): ?>
-                <p class="p-4 text-muted small mb-0">No hay torneos publicados en este momento.</p>
-            <?php else: ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 small" id="tablaTorneos">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4">Torneo</th>
-                                <th>Organizador</th>
-                                <th>Sede / Fecha</th>
-                                <th>Inscritos</th>
-                                <th class="text-end pe-4">Moderación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($torneos as $t): 
-                                $torneoEsc = htmlspecialchars($t['nombre'], ENT_QUOTES);
-                                $cantIns   = (int)$t['inscritos'];
-                                $avisoIns  = $cantIns > 0 ? " ADVERTENCIA: Este evento tiene {$cantIns} jugador(es) inscrito(s) que perderán su registro." : "";
-                                $msgConfirmTorneo = "¿Eliminar permanentemente el torneo \"{$torneoEsc}\"?{$avisoIns}";
+    <!-- SECCIÓN 1: PRÓXIMOS TORNEOS Y CONVOCATORIAS -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 fw-bolder text-dark mb-0">
+            <i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Torneos y Convocatorias
+        </h2>
+        <span class="badge bg-white text-dark border px-3 py-2 rounded-pill">
+            <?= count($torneosProximos) ?> <?= count($torneosProximos) === 1 ? 'evento próximo' : 'eventos próximos' ?>
+        </span>
+    </div>
 
-                                // Obtener lista de inscritos para este torneo
-                                $stmtJug = $pdo->prepare("
-                                    SELECT i.categoria, u.nombre_completo, u.correo, u.elo_actual
-                                    FROM inscripciones i
-                                    INNER JOIN usuarios u ON i.id_jugador = u.id_usuario
-                                    WHERE i.id_torneo = ?
-                                    ORDER BY i.fecha_inscripcion ASC
-                                ");
-                                $stmtJug->execute([$t['id_torneo']]);
-                                $listaJugadores = $stmtJug->fetchAll();
-                            ?>
-                            <tr>
-                                <td class="ps-4 fw-bold text-dark"><?= htmlspecialchars($t['nombre']) ?></td>
-                                <td><?= htmlspecialchars($t['organizador']) ?></td>
-                                <td><?= htmlspecialchars($t['nombre_estado']) ?> &bull; <?= date('d/m/Y', strtotime($t['fecha_evento'])) ?></td>
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0 fw-bold" 
-                                            data-bs-toggle="collapse" data-bs-target="#adminInscritos<?= $t['id_torneo'] ?>">
-                                        <i class="bi bi-people-fill me-1"></i><?= $cantIns ?>
-                                    </button>
-                                </td>
-                                <td class="text-end pe-4 text-nowrap">
-                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn btn-outline-secondary btn-sm rounded-3" title="Ver">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="formulario_torneo.php?id=<?= $t['id_torneo'] ?>" class="btn btn-warning btn-sm rounded-3 text-dark fw-bold" title="Editar">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>
-                                    <form method="POST" action="backend/torneo_eliminar.php" class="d-inline" onsubmit="return confirm('<?= $msgConfirmTorneo ?>');">
-                                        <input type="hidden" name="id_torneo" value="<?= $t['id_torneo'] ?>">
-                                        <button type="submit" class="btn btn-danger btn-sm rounded-3" title="Eliminar">
-                                            <i class="bi bi-trash3"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            <!-- Fila desplegable con lista de inscritos -->
-                            <tr class="collapse bg-light" id="adminInscritos<?= $t['id_torneo'] ?>">
-                                <td colspan="5" class="px-4 py-3">
-                                    <strong class="d-block text-uppercase text-muted mb-2" style="font-size: 0.72rem;">
-                                        Jugadores inscritos en <?= htmlspecialchars($t['nombre']) ?>:
-                                    </strong>
-                                    <?php if (empty($listaJugadores)): ?>
-                                        <span class="text-muted fst-italic">Ningún jugador inscrito todavía.</span>
-                                    <?php else: ?>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <?php foreach ($listaJugadores as $jug): ?>
-                                                <span class="badge bg-white text-dark border py-2 px-3 fw-normal">
-                                                    <strong><?= htmlspecialchars($jug['nombre_completo']) ?></strong> (<?= htmlspecialchars($jug['categoria']) ?> &bull; Elo <?= (int)$jug['elo_actual'] ?>)
-                                                </span>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+    <?php if (empty($torneosProximos)): ?>
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center my-4">
+            <div class="text-muted mb-3">
+                <i class="bi bi-inbox display-4"></i>
+            </div>
+            <h4 class="fw-bold text-dark">No se encontraron torneos próximos</h4>
+            <p class="text-muted small mb-3">No hay convocatorias vigentes que coincidan con los filtros seleccionados en este momento.</p>
+            <?php if ($busqueda !== '' || $filtroEstado > 0 || $filtroRitmo > 0): ?>
+                <div>
+                    <a href="index.php" class="btn btn-outline-primary btn-sm fw-bold rounded-3 px-4">Ver todos los torneos</a>
                 </div>
             <?php endif; ?>
         </div>
-    </div>
-</main>
+    <?php else: ?>
+        <div class="row g-3 mb-5">
+            <?php foreach ($torneosProximos as $t): 
+                $costoTexto = ($t['costo'] <= 0) ? 'Gratis' : '$' . number_format($t['costo'], 2) . ' MXN';
+                $totalIns   = (int)$t['total_inscritos'];
+                $cupoMax    = (int)($t['cupo'] ?? 150);
+                $cupoLleno  = ($totalIns >= $cupoMax);
+            ?>
+            <div class="col-12">
+                <div class="card card-torneo bg-white shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center gy-3">
+                            <div class="col-lg-8">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                    <span class="badge rounded-pill px-3 py-1 fw-bold" style="background:#e0e7ff; color:#3730a3;">
+                                        <i class="bi bi-stopwatch me-1"></i><?= htmlspecialchars($t['nombre_ritmo']) ?> (<?= htmlspecialchars($t['ritmo_detalle']) ?>)
+                                    </span>
 
-<script>
-    // Filtro instantáneo para tablas del administrador
-    function activarFiltroTabla(inputId, tablaId) {
-        document.getElementById(inputId)?.addEventListener('input', function() {
-            const texto = this.value.toLowerCase();
-            document.querySelectorAll(`#${tablaId} tbody tr:not(.collapse)`).forEach(fila => {
-                fila.style.display = fila.textContent.toLowerCase().includes(texto) ? '' : 'none';
-            });
-        });
-    }
-    activarFiltroTabla('filtroUsuarios', 'tablaUsuarios');
-    activarFiltroTabla('filtroTorneos', 'tablaTorneos');
-</script>
+                                    <?php if ($t['es_fide']): ?>
+                                        <span class="badge badge-fide rounded-pill px-3 py-1 fw-bold">
+                                            <i class="bi bi-award-fill me-1"></i>Válido FIDE
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <?php if ($cupoLleno): ?>
+                                        <span class="badge bg-danger rounded-pill px-3 py-1 fw-bold">
+                                            <i class="bi bi-slash-circle me-1"></i>Cupo Lleno
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <h3 class="h5 fw-bolder text-dark mb-2">
+                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="text-decoration-none text-dark stretched-link">
+                                        <?= htmlspecialchars($t['nombre']) ?>
+                                    </a>
+                                </h3>
+
+                                <div class="d-flex flex-wrap gap-3 text-muted small">
+                                    <span><i class="bi bi-geo-alt-fill text-danger me-1"></i><?= htmlspecialchars($t['nombre_estado']) ?></span>
+                                    <span><i class="bi bi-calendar3 text-primary me-1"></i><?= date('d/m/Y', strtotime($t['fecha_evento'])) ?></span>
+                                    <span><i class="bi bi-clock text-primary me-1"></i><?= date('H:i', strtotime($t['hora_inicio'])) ?> hrs</span>
+                                    <span class="<?= $cupoLleno ? 'text-danger fw-bold' : '' ?>">
+                                        <i class="bi bi-people-fill <?= $cupoLleno ? 'text-danger' : 'text-success' ?> me-1"></i><?= $totalIns ?>/<?= $cupoMax ?> inscritos
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 text-lg-end border-top border-lg-0 pt-3 pt-lg-0 d-flex d-lg-block justify-content-between align-items-center">
+                                <div class="mb-lg-2">
+                                    <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Inscripción</span>
+                                    <span class="h4 fw-bolder text-primary mb-0"><?= $costoTexto ?></span>
+                                </div>
+
+                                <div class="position-relative" style="z-index: 2;">
+                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn <?= $cupoLleno ? 'btn-outline-danger' : 'btn-chess-primary' ?> btn-sm px-4 py-2 rounded-3">
+                                        <?= $cupoLleno ? 'Ver Detalles (Cupo Lleno)' : 'Ver Convocatoria e Inscribirme' ?>
+                                        <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- SECCIÓN 2: EVENTOS FINALIZADOS -->
+    <?php if (!empty($torneosFinalizados)): ?>
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-4 pt-3 border-top">
+            <h2 class="h5 fw-bolder text-secondary mb-0">
+                <i class="bi bi-clock-history me-2"></i>Eventos Finalizados
+            </h2>
+            <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill">
+                <?= count($torneosFinalizados) ?> <?= count($torneosFinalizados) === 1 ? 'historial' : 'historiales' ?>
+            </span>
+        </div>
+
+        <div class="row g-3">
+            <?php foreach ($torneosFinalizados as $t): 
+                $costoTexto = ($t['costo'] <= 0) ? 'Gratis' : '$' . number_format($t['costo'], 2) . ' MXN';
+                $totalIns   = (int)$t['total_inscritos'];
+                $cupoMax    = (int)($t['cupo'] ?? 150);
+            ?>
+            <div class="col-12">
+                <div class="card card-torneo bg-white shadow-sm opacity-75">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center gy-3">
+                            <div class="col-lg-8">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1 fw-bold">
+                                        <i class="bi bi-stopwatch me-1"></i><?= htmlspecialchars($t['nombre_ritmo']) ?> (<?= htmlspecialchars($t['ritmo_detalle']) ?>)
+                                    </span>
+
+                                    <?php if ($t['es_fide']): ?>
+                                        <span class="badge badge-fide rounded-pill px-3 py-1 fw-bold">
+                                            <i class="bi bi-award-fill me-1"></i>Válido FIDE
+                                        </span>
+                                    <?php endif; ?>
+
+                                    <span class="badge bg-secondary rounded-pill px-3 py-1">Evento Finalizado</span>
+                                </div>
+
+                                <h3 class="h5 fw-bolder text-dark mb-2">
+                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="text-decoration-none text-dark stretched-link">
+                                        <?= htmlspecialchars($t['nombre']) ?>
+                                    </a>
+                                </h3>
+
+                                <div class="d-flex flex-wrap gap-3 text-muted small">
+                                    <span><i class="bi bi-geo-alt-fill text-secondary me-1"></i><?= htmlspecialchars($t['nombre_estado']) ?></span>
+                                    <span><i class="bi bi-calendar3 text-secondary me-1"></i><?= date('d/m/Y', strtotime($t['fecha_evento'])) ?></span>
+                                    <span><i class="bi bi-people-fill text-secondary me-1"></i><?= $totalIns ?>/<?= $cupoMax ?> participantes</span>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 text-lg-end border-top border-lg-0 pt-3 pt-lg-0 d-flex d-lg-block justify-content-between align-items-center">
+                                <div class="mb-lg-2">
+                                    <span class="d-block small text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Inscripción</span>
+                                    <span class="h4 fw-bolder text-muted mb-0"><?= $costoTexto ?></span>
+                                </div>
+
+                                <div class="position-relative" style="z-index: 2;">
+                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn btn-outline-secondary btn-sm px-4 py-2 rounded-3">
+                                        Ver Información del Evento
+                                        <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+</main>
 
 <?php require_once 'includes/footer.php'; ?>

@@ -1,7 +1,6 @@
 <?php
 require_once 'config/conexion.php';
 
-// Si ya inició sesión, redirigir a la cartelera
 if (isset($_SESSION['id_usuario'])) {
     header('Location: index.php');
     exit;
@@ -9,6 +8,9 @@ if (isset($_SESSION['id_usuario'])) {
 
 $tituloPagina = 'Iniciar Sesión - ChessEvents México';
 $migaActual   = 'Iniciar Sesión';
+
+$correoPrevio = $_SESSION['correo_login'] ?? '';
+unset($_SESSION['correo_login']);
 
 require_once 'includes/header.php';
 require_once 'includes/navbar.php';
@@ -33,22 +35,23 @@ require_once 'includes/alertas.php';
                             <label for="correo" class="form-label small fw-bold text-muted text-uppercase">Correo Electrónico</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light"><i class="bi bi-envelope text-muted"></i></span>
-                                <input type="email" id="correo" name="correo" required class="form-control bg-light" placeholder="usuario@correo.com">
+                                <input type="email" id="correo" name="correo" required class="form-control bg-light"
+                                       value="<?= htmlspecialchars($correoPrevio) ?>" placeholder="usuario@correo.com">
                             </div>
                         </div>
 
                         <div class="mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <label for="password" class="form-label small fw-bold text-muted text-uppercase">Contraseña</label>
-        <a href="#modalFaqContacto" data-bs-toggle="modal" class="small text-primary text-decoration-none fw-semibold">
-            ¿Olvidaste tu contraseña?
-        </a>
-    </div>
-    <div class="input-group">
-        <span class="input-group-text bg-light"><i class="bi bi-key text-muted"></i></span>
-        <input type="password" id="password" name="password" required class="form-control bg-light" placeholder="••••••••">
-    </div>
-</div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label for="password" class="form-label small fw-bold text-muted text-uppercase">Contraseña</label>
+                                <a href="#modalFaqContacto" data-bs-toggle="modal" class="small text-primary text-decoration-none fw-semibold">
+                                    ¿Olvidaste tu contraseña?
+                                </a>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key text-muted"></i></span>
+                                <input type="password" id="password" name="password" required class="form-control bg-light" placeholder="••••••••">
+                            </div>
+                        </div>
 
                         <button type="submit" class="btn btn-chess-primary w-100 py-2.5 rounded-3 mb-3">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Entrar a la Plataforma
@@ -56,12 +59,10 @@ require_once 'includes/alertas.php';
                     </form>
 
                     <div class="text-center border-top pt-3 mt-2">
-                        
                         <p class="small text-muted mb-1">¿Aún no tienes una cuenta?</p>
                         <a href="registro.php" class="btn btn-outline-secondary btn-sm fw-bold rounded-3 px-4">
                             Crear Cuenta Nueva
                         </a>
-                        
                     </div>
                 </div>
             </div>

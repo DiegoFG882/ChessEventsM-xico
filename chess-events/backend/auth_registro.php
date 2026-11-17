@@ -6,7 +6,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Guardar datos ingresados (excepto contraseñas) para rellenar el formulario si hay error
 $_SESSION['form_old'] = [
     'nombre_completo' => $_POST['nombre_completo'] ?? '',
     'correo'          => $_POST['correo'] ?? '',
@@ -85,6 +84,7 @@ try {
 
     if ($stmt->fetch()) {
         unset($_SESSION['form_old']);
+        $_SESSION['correo_login'] = $correo;
         $_SESSION['alerta'] = ['tipo' => 'warning', 'mensaje' => 'Ese correo electrónico ya está registrado. Inicia sesión con tu cuenta.'];
         header('Location: ../login.php');
         exit;
@@ -97,6 +97,7 @@ try {
     $stmtInsert->execute([$idRol, $idEstado, $nombre, $correo, $telefono, $idFide ?: null, $elo, $hash]);
 
     unset($_SESSION['form_old']);
+    $_SESSION['correo_login'] = $correo;
     $_SESSION['alerta'] = ['tipo' => 'success', 'mensaje' => 'Cuenta creada con éxito. Ahora puedes iniciar sesión.'];
     header('Location: ../login.php');
     exit;

@@ -94,7 +94,7 @@ require_once 'includes/alertas.php';
                         </div>
 
                         <!-- 2. Formato y Fecha -->
-                        <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3">2. Formato, Ritmo y Horario</h2>
+                        <h2 class="h6 fw-bold text-uppercase text-muted border-bottom pb-2 mb-3">2. Formato, Ritmo, Cupo y Horario</h2>
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label for="id_ritmo" class="form-label small fw-bold">Categoría de Ritmo *</label>
@@ -120,15 +120,21 @@ require_once 'includes/alertas.php';
                         </div>
 
                         <div class="row g-3 mb-4">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="fecha_evento" class="form-label small fw-bold">Fecha del Evento *</label>
                                 <input type="date" id="fecha_evento" name="fecha_evento" required class="form-control bg-light"
+                                       <?= !$torneo ? 'min="' . date('Y-m-d') . '"' : '' ?>
                                        value="<?= htmlspecialchars($torneo['fecha_evento'] ?? '') ?>">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="hora_inicio" class="form-label small fw-bold">Hora de Inicio (Ronda 1) *</label>
                                 <input type="time" id="hora_inicio" name="hora_inicio" required class="form-control bg-light"
                                        value="<?= htmlspecialchars($torneo['hora_inicio'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cupo" class="form-label small fw-bold">Cupo Máximo (Jugadores) *</label>
+                                <input type="number" id="cupo" name="cupo" required min="2" max="2000" class="form-control bg-light"
+                                       value="<?= htmlspecialchars($torneo['cupo'] ?? '150') ?>">
                             </div>
                         </div>
 

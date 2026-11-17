@@ -8,8 +8,9 @@ if ($idTorneo <= 0) {
     exit;
 }
 
-// Consultar datos completos del torneo con JOINs
-$sql = "SELECT t.*, e.nombre_estado, r.nombre_ritmo, u.nombre_completo AS organizador
+// Consultar datos completos del torneo con JOINs y conteo de inscritos
+$sql = "SELECT t.*, e.nombre_estado, r.nombre_ritmo, u.nombre_completo AS organizador,
+               (SELECT COUNT(*) FROM inscripciones i WHERE i.id_torneo = t.id_torneo) AS total_inscritos
         FROM torneos t
         INNER JOIN estados e ON t.id_estado = e.id_estado
         INNER JOIN ritmos r ON t.id_ritmo = r.id_ritmo
@@ -25,10 +26,14 @@ if (!$torneo) {
     exit;
 }
 
-$tituloPagina = $torneo['nombre'] . ' - ChessEvents México';
-$migaActual   = 'Detalles del Torneo';
-$esPasado     = ($torneo['fecha_evento'] < date('Y-m-d'));
-$costoTexto   = ($torneo['costo'] <= 0) ? 'Gratis' : '$' . number_format($torneo['costo'], 2) . ' MXN';
+$tituloPagina   = $torneo['nombre'] . ' - ChessEvents México';
+$migaActual     = 'Detalles del Torneo';
+$esPasado       = ($torneo['fecha_evento'] < date('Y-m-d'));
+$costoTexto     = ($torneo['costo'] <= 0) ? 'Gratis' : '$' . number_format($torneo['costo'], 2) . ' MXN';
+$totalInscritos = (int)$torneo['total_inscritos'];
+$cupoMaximo     = (int)($torneo['cupo'] ?? 150);
+$lugaresDisp    = max(0, $cupoMaximo - $totalInscritos);
+$cupoLleno      = ($totalInscritos >= $cupoMaximo);
 
 // Verificar si el usuario actual ya está inscrito
 $yaInscrito = false;
@@ -57,13 +62,18 @@ require_once 'includes/alertas.php';
                         <a href="index.php" class="btn btn-outline-light btn-sm rounded-3 fw-semibold">
                             <i class="bi bi-arrow-left me-1"></i> Volver a Cartelera
                         </a>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-wrap gap-2">
                             <span class="badge bg-primary px-3 py-2 rounded-pill">
                                 <i class="bi bi-stopwatch me-1"></i><?= htmlspecialchars($torneo['nombre_ritmo']) ?>
                             </span>
                             <?php if ($torneo['es_fide']): ?>
                                 <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold">
                                     <i class="bi bi-award-fill me-1"></i>Válido FIDE
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($cupoLleno && !$esPasado): ?>
+                                <span class="badge bg-danger px-3 py-2 rounded-pill fw-bold">
+                                    <i class="bi bi-people-fill me-1"></i>Cupo Lleno
                                 </span>
                             <?php endif; ?>
                         </div>
@@ -132,6 +142,21 @@ require_once 'includes/alertas.php';
                                     <span class="badge bg-white text-dark border px-3 py-2 fw-bold"><?= (int)$torneo['rondas'] ?> Rondas</span>
                                 </li>
                                 <li class="list-group-item d-flex justify-content-between align-items-center bg-light py-3">
+                                    <span class="small fw-semibold text-muted">Cupo y Disponibilidad</span>
+                                    <div>
+                                        <span class="badge bg-white text-dark border px-3 py-2 fw-bold">
+                                            <?= $totalInscritos ?> / <?= $cupoMaximo ?> inscritos
+                                        </span>
+                                        <?php if ($cupoLleno): ?>
+                                            <span class="badge bg-danger ms-1 px-2 py-2">Cupo Lleno</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle ms-1 px-2 py-2">
+                                                Quedan <?= $lugaresDisp ?> <?= $lugaresDisp === 1 ? 'lugar' : 'lugares' ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center bg-light py-3">
                                     <span class="small fw-semibold text-muted">Aval Oficial</span>
                                     <span class="fw-bold small <?= $torneo['es_fide'] ? 'text-warning-emphasis' : 'text-muted' ?>">
                                         <?= $torneo['es_fide'] ? 'Válido para Rating FIDE' : 'Torneo Abierto / Local' ?>
@@ -149,7 +174,7 @@ require_once 'includes/alertas.php';
                                     <i class="bi bi-pencil-square text-primary me-1"></i> Registro de Participación
                                 </h3>
                                 <p class="small text-muted mb-0">
-                                    Aparta tu lugar en la lista oficial de jugadores del torneo.
+                                    Aparta tu lugar en la lista oficial (<strong><?= $totalInscritos ?>/<?= $cupoMaximo ?></strong> lugares ocupados<?= (!$esPasado && !$cupoLleno) ? " &bull; quedan <strong>{$lugaresDisp}</strong> disponibles" : '' ?>).
                                 </p>
                             </div>
                             <div class="col-md-5 text-md-end">
@@ -157,14 +182,18 @@ require_once 'includes/alertas.php';
                                     <button class="btn btn-secondary w-100 rounded-3 fw-bold" disabled>
                                         <i class="bi bi-lock-fill me-1"></i> Inscripciones Cerradas
                                     </button>
-                                <?php elseif (!isset($_SESSION['id_usuario'])): ?>
-                                    <a href="login.php" class="btn btn-chess-primary w-100 py-2.5 rounded-3">
-                                        <i class="bi bi-box-arrow-in-right me-1"></i> Inicia Sesión para Inscribirte
-                                    </a>
                                 <?php elseif ($yaInscrito): ?>
                                     <div class="alert alert-success py-2 px-3 mb-0 rounded-3 small fw-bold text-center">
                                         <i class="bi bi-check-circle-fill me-1"></i> Ya estás inscrito (Categoría: <?= htmlspecialchars($inscripcionActual['categoria']) ?>)
                                     </div>
+                                <?php elseif ($cupoLleno): ?>
+                                    <button class="btn btn-danger w-100 rounded-3 fw-bold" disabled>
+                                        <i class="bi bi-slash-circle-fill me-1"></i> Cupo Lleno (<?= $totalInscritos ?>/<?= $cupoMaximo ?>)
+                                    </button>
+                                <?php elseif (!isset($_SESSION['id_usuario'])): ?>
+                                    <a href="login.php" class="btn btn-chess-primary w-100 py-2.5 rounded-3">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i> Inicia Sesión para Inscribirte
+                                    </a>
                                 <?php elseif ($_SESSION['id_rol'] === 3): ?>
                                     <form method="POST" action="backend/inscripcion_accion.php" class="d-flex gap-2">
                                         <input type="hidden" name="accion" value="inscribir">

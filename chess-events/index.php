@@ -165,6 +165,9 @@ require_once 'includes/alertas.php';
         <div class="row g-3 mb-5">
             <?php foreach ($torneosProximos as $t): 
                 $costoTexto = ($t['costo'] <= 0) ? 'Gratis' : '$' . number_format($t['costo'], 2) . ' MXN';
+                $totalIns   = (int)$t['total_inscritos'];
+                $cupoMax    = (int)($t['cupo'] ?? 150);
+                $cupoLleno  = ($totalIns >= $cupoMax);
             ?>
             <div class="col-12">
                 <div class="card card-torneo bg-white shadow-sm">
@@ -181,6 +184,12 @@ require_once 'includes/alertas.php';
                                             <i class="bi bi-award-fill me-1"></i>Válido FIDE
                                         </span>
                                     <?php endif; ?>
+
+                                    <?php if ($cupoLleno): ?>
+                                        <span class="badge bg-danger rounded-pill px-3 py-1 fw-bold">
+                                            <i class="bi bi-slash-circle me-1"></i>Cupo Lleno
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <h3 class="h5 fw-bolder text-dark mb-2">
@@ -193,7 +202,9 @@ require_once 'includes/alertas.php';
                                     <span><i class="bi bi-geo-alt-fill text-danger me-1"></i><?= htmlspecialchars($t['nombre_estado']) ?></span>
                                     <span><i class="bi bi-calendar3 text-primary me-1"></i><?= date('d/m/Y', strtotime($t['fecha_evento'])) ?></span>
                                     <span><i class="bi bi-clock text-primary me-1"></i><?= date('H:i', strtotime($t['hora_inicio'])) ?> hrs</span>
-                                    <span><i class="bi bi-people-fill text-success me-1"></i><?= $t['total_inscritos'] ?> <?= $t['total_inscritos'] == 1 ? 'inscrito' : 'inscritos' ?></span>
+                                    <span class="<?= $cupoLleno ? 'text-danger fw-bold' : '' ?>">
+                                        <i class="bi bi-people-fill <?= $cupoLleno ? 'text-danger' : 'text-success' ?> me-1"></i><?= $totalIns ?>/<?= $cupoMax ?> inscritos
+                                    </span>
                                 </div>
                             </div>
 
@@ -204,8 +215,8 @@ require_once 'includes/alertas.php';
                                 </div>
 
                                 <div class="position-relative" style="z-index: 2;">
-                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn btn-chess-primary btn-sm px-4 py-2 rounded-3">
-                                        Ver Convocatoria e Inscribirme
+                                    <a href="detalles.php?id=<?= $t['id_torneo'] ?>" class="btn <?= $cupoLleno ? 'btn-outline-danger' : 'btn-chess-primary' ?> btn-sm px-4 py-2 rounded-3">
+                                        <?= $cupoLleno ? 'Ver Detalles (Cupo Lleno)' : 'Ver Convocatoria e Inscribirme' ?>
                                         <i class="bi bi-arrow-right ms-1"></i>
                                     </a>
                                 </div>
@@ -232,6 +243,8 @@ require_once 'includes/alertas.php';
         <div class="row g-3">
             <?php foreach ($torneosFinalizados as $t): 
                 $costoTexto = ($t['costo'] <= 0) ? 'Gratis' : '$' . number_format($t['costo'], 2) . ' MXN';
+                $totalIns   = (int)$t['total_inscritos'];
+                $cupoMax    = (int)($t['cupo'] ?? 150);
             ?>
             <div class="col-12">
                 <div class="card card-torneo bg-white shadow-sm opacity-75">
@@ -261,7 +274,7 @@ require_once 'includes/alertas.php';
                                 <div class="d-flex flex-wrap gap-3 text-muted small">
                                     <span><i class="bi bi-geo-alt-fill text-secondary me-1"></i><?= htmlspecialchars($t['nombre_estado']) ?></span>
                                     <span><i class="bi bi-calendar3 text-secondary me-1"></i><?= date('d/m/Y', strtotime($t['fecha_evento'])) ?></span>
-                                    <span><i class="bi bi-people-fill text-secondary me-1"></i><?= $t['total_inscritos'] ?> <?= $t['total_inscritos'] == 1 ? 'participante' : 'participantes' ?></span>
+                                    <span><i class="bi bi-people-fill text-secondary me-1"></i><?= $totalIns ?>/<?= $cupoMax ?> participantes</span>
                                 </div>
                             </div>
 

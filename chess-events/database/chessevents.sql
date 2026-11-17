@@ -2,7 +2,6 @@
 -- BASE DE DATOS NORMALIZADA (3FN) - CHESSEVENTS MÉXICO (POSTGRESQL)
 -- ============================================================================
 
--- Limpiar tablas si ya existen (útil para reiniciar pruebas)
 DROP TABLE IF EXISTS inscripciones CASCADE;
 DROP TABLE IF EXISTS torneos CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
@@ -10,7 +9,7 @@ DROP TABLE IF EXISTS ritmos CASCADE;
 DROP TABLE IF EXISTS estados CASCADE;
 DROP TABLE IF EXISTS roles CASCADE;
 
--- 1. CATÁLOGO DE ROLES (1FN, 2FN, 3FN)
+-- 1. CATÁLOGO DE ROLES
 CREATE TABLE roles (
     id_rol SERIAL PRIMARY KEY,
     nombre_rol VARCHAR(30) NOT NULL UNIQUE
@@ -47,7 +46,7 @@ INSERT INTO ritmos (nombre_ritmo) VALUES
 ('Rápido'), 
 ('Blitz');
 
--- 4. TABLA DE USUARIOS (Ampliada a 7 campos + confirmación en frontend)
+-- 4. TABLA DE USUARIOS
 CREATE TABLE usuarios (
     id_usuario SERIAL PRIMARY KEY,
     id_rol INT NOT NULL DEFAULT 3 REFERENCES roles(id_rol),
@@ -61,7 +60,10 @@ CREATE TABLE usuarios (
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Usuario Administrador por defecto (Contraseña: Admin123)
+-- Evita correos duplicados aunque cambien mayúsculas/minúsculas
+CREATE UNIQUE INDEX idx_usuarios_correo_lower ON usuarios (LOWER(correo));
+
+-- Usuario Administrador por defecto (Contraseña inicial: password — cambiar en Mi Perfil tras desplegar)
 INSERT INTO usuarios (id_rol, id_estado, nombre_completo, correo, telefono, id_fide, elo_actual, password_hash)
 VALUES (
     1, 
@@ -71,10 +73,10 @@ VALUES (
     '5542342512', 
     '5110981', 
     1850, 
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi' -- Hash válido para "password" (lo actualizaremos al probar)
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'
 );
 
--- 5. TABLA DE TORNEOS (Con todos los campos exactos de tu torneoajedrez.html)
+-- 5. TABLA DE TORNEOS
 CREATE TABLE torneos (
     id_torneo SERIAL PRIMARY KEY,
     id_organizador INT NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
@@ -83,20 +85,21 @@ CREATE TABLE torneos (
     nombre VARCHAR(150) NOT NULL,
     direccion VARCHAR(200) NOT NULL,
     url_maps TEXT NULL,
-    ritmo_detalle VARCHAR(30) NOT NULL,      -- Ej: 90+30
+    ritmo_detalle VARCHAR(30) NOT NULL,
     rondas INT NOT NULL DEFAULT 5,
     fecha_evento DATE NOT NULL,
     hora_inicio TIME NOT NULL,
-    costo DECIMAL(10, 2) DEFAULT 0.00,       -- 0.00 representa "Gratis"
+    cupo INT NOT NULL DEFAULT 150 CHECK (cupo >= 2),
+    costo DECIMAL(10, 2) DEFAULT 0.00,
     es_fide BOOLEAN DEFAULT FALSE,
     whatsapp_contacto VARCHAR(15) NOT NULL,
-    red_social TEXT NULL,                    -- Link Facebook/Red Social (campo original)
-    archivo_contenido TEXT NULL,             -- PDF o Imagen en Base64
-    archivo_nombre VARCHAR(150) NULL,        -- Nombre original del archivo
+    red_social TEXT NULL,
+    archivo_contenido TEXT NULL,
+    archivo_nombre VARCHAR(150) NULL,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. TABLA DE INSCRIPCIONES (Relación N:M entre Jugadores y Torneos)
+-- 6. TABLA DE INSCRIPCIONES
 CREATE TABLE inscripciones (
     id_inscripcion SERIAL PRIMARY KEY,
     id_torneo INT NOT NULL REFERENCES torneos(id_torneo) ON DELETE CASCADE,
@@ -104,5 +107,5 @@ CREATE TABLE inscripciones (
     categoria VARCHAR(50) DEFAULT 'Libre',
     estado_inscripcion VARCHAR(30) DEFAULT 'Confirmada',
     fecha_inscripcion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(id_torneo, id_jugador)            -- Evita que un jugador se inscriba dos veces al mismo torneo
+    UNIQUE(id_torneo, id_jugador)
 );
