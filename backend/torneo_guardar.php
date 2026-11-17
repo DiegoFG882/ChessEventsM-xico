@@ -58,7 +58,7 @@ if ($cupo < 2 || $cupo > 2000) {
 // Procesar archivo adjunto (input name="convocatoria", máx. 4 MB)
 $archivoBase64 = null;
 $archivoNombre = null;
-$archivoTipo   = null;
+
 $hayArchivo    = false;
 
 if (isset($_FILES['convocatoria']) && $_FILES['convocatoria']['error'] === UPLOAD_ERR_OK) {
@@ -76,9 +76,9 @@ if (isset($_FILES['convocatoria']) && $_FILES['convocatoria']['error'] === UPLOA
     }
 
     $binario       = file_get_contents($file['tmp_name']);
-    $archivoBase64 = base64_encode($binario);
+    $archivoBase64 = 'data:' . $file['type'] . ';base64,' . base64_encode($binario);
     $archivoNombre = $file['name'];
-    $archivoTipo   = $file['type'];
+    
     $hayArchivo    = true;
 }
 
@@ -106,9 +106,9 @@ try {
 
         if ($hayArchivo) {
             $sql = "UPDATE torneos 
-                    SET id_estado=?, id_ritmo=?, nombre=?, direccion=?, url_maps=?, ritmo_detalle=?, rondas=?, fecha_evento=?, hora_inicio=?, cupo=?, costo=?, es_fide=?, whatsapp_contacto=?, red_social=?, archivo_base64=?, archivo_nombre=?, archivo_tipo=? 
+                    SET id_estado=?, id_ritmo=?, nombre=?, direccion=?, url_maps=?, ritmo_detalle=?, rondas=?, fecha_evento=?, hora_inicio=?, cupo=?, costo=?, es_fide=?, whatsapp_contacto=?, red_social=?, archivo_contenido=?, archivo_nombre=? 
                     WHERE id_torneo=?";
-            $params = [$idEstado, $idRitmo, $nombre, $direccion, $urlMaps ?: null, $ritmoDetalle, $rondas, $fecha, $hora, $cupo, $costo, $esFide, $whatsapp, $redSocial ?: null, $archivoBase64, $archivoNombre, $archivoTipo, $idTorneo];
+            $params = [$idEstado, $idRitmo, $nombre, $direccion, $urlMaps ?: null, $ritmoDetalle, $rondas, $fecha, $hora, $cupo, $costo, $esFide, $whatsapp, $redSocial ?: null, $archivoBase64, $archivoNombre, $idTorneo];
         } else {
             $sql = "UPDATE torneos 
                     SET id_estado=?, id_ritmo=?, nombre=?, direccion=?, url_maps=?, ritmo_detalle=?, rondas=?, fecha_evento=?, hora_inicio=?, cupo=?, costo=?, es_fide=?, whatsapp_contacto=?, red_social=? 
@@ -119,10 +119,10 @@ try {
         $pdo->prepare($sql)->execute($params);
         $_SESSION['alerta'] = ['tipo' => 'success', 'mensaje' => '¡Los cambios del torneo se guardaron correctamente!'];
     } else {
-        $sql = "INSERT INTO torneos (id_organizador, id_estado, id_ritmo, nombre, direccion, url_maps, ritmo_detalle, rondas, fecha_evento, hora_inicio, cupo, costo, es_fide, whatsapp_contacto, red_social, archivo_base64, archivo_nombre, archivo_tipo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO torneos (id_organizador, id_estado, id_ritmo, nombre, direccion, url_maps, ritmo_detalle, rondas, fecha_evento, hora_inicio, cupo, costo, es_fide, whatsapp_contacto, red_social, archivo_contenido, archivo_nombre)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $pdo->prepare($sql)->execute([
-            $_SESSION['id_usuario'], $idEstado, $idRitmo, $nombre, $direccion, $urlMaps ?: null, $ritmoDetalle, $rondas, $fecha, $hora, $cupo, $costo, $esFide, $whatsapp, $redSocial ?: null, $archivoBase64, $archivoNombre, $archivoTipo
+            $_SESSION['id_usuario'], $idEstado, $idRitmo, $nombre, $direccion, $urlMaps ?: null, $ritmoDetalle, $rondas, $fecha, $hora, $cupo, $costo, $esFide, $whatsapp, $redSocial ?: null, $archivoBase64, $archivoNombre
         ]);
         $_SESSION['alerta'] = ['tipo' => 'success', 'mensaje' => '¡Torneo publicado en la cartelera nacional!'];
     }
